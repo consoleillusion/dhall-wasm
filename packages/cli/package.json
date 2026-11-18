@@ -1,0 +1,12 @@
+{
+  "name": "@dhall-wasm/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "dhall-ts": "./src/main.ts"
+  },
+  "dependencies": {
+    "@dhall-wasm/core": "workspace:*",
+    "cmd-ts": "^0.15.0"
+  }
+}

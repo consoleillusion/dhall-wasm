@@ -1,12 +1,19 @@
 {
   "name": "dhall-wasm",
-  "module": "index.ts",
-  "type": "module",
+  "version": "0.1.0",
   "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "bun test",
+    "cli": "bun run packages/cli/src/main.ts"
   },
-  "peerDependencies": {
-    "typescript": "^7"
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "latest",
+    "typescript": "latest"
   }
 }
