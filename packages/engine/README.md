@@ -7,3 +7,22 @@ exists.
 
 Consumers never build this package; the compiled artifact is shipped in the
 published packages and in the Nix CLI derivation.
+
+## Building the real engine
+
+The `wasm32-wasi` GHC cross-compiler is **opt-in** so that `nix run .` and
+`nix develop` stay fast:
+
+```bash
+nix develop .#engine
+wasm32-wasi-ghc --version
+```
+
+This shell comes from the `ghc-wasm-nix` flake input, which integrates
+`ghc-wasm-meta`'s prebuilt bindists with nixpkgs' Haskell package set. It also
+provides `wasm32-wasi-cabal`, `wasm-opt`, `wasm-tools`, `wizer`, and `wasmtime`.
+The resulting compiler can be installed directly with `nix profile install .#ghc`
+(or built with `nix build .#ghc`) without changing the default CLI app.
+
+On `x86_64-darwin`, the engine shell is intentionally omitted because the GHC
+WASM bindists do not support that platform.
