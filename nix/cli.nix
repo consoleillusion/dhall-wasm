@@ -43,16 +43,20 @@ let
       runHook postBuild
     '';
 
+    # Only the installed dependency trees belong in this fixed-output output.
+    # Copying the full source would make the hash depend on nix/cli.nix itself.
     installPhase = ''
       runHook preInstall
-      mkdir -p $out
-      cp -a ./. $out/
+      mkdir -p $out/packages/cli $out/packages/core $out/packages/engine
+      cp -a ./node_modules $out/node_modules
+      cp -a ./packages/cli/node_modules $out/packages/cli/node_modules
+      cp -a ./packages/core/node_modules $out/packages/core/node_modules
       runHook postInstall
     '';
 
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256-pwcCxNukX3gP+00LrxQQp2zjYt4hhH1bxn03Pt2PuyY=";
+    outputHash = "sha256-c/0Tuw5fbF4fFxrglfhGujoT1b8Ay4uW8gupTr9anCM=";
   };
 in
 stdenv.mkDerivation {
@@ -68,6 +72,7 @@ stdenv.mkDerivation {
     rm -rf node_modules packages/cli/node_modules
     cp -a ${nodeModules}/node_modules ./node_modules
     cp -a ${nodeModules}/packages/cli/node_modules ./packages/cli/node_modules
+    cp -a ${nodeModules}/packages/core/node_modules ./packages/core/node_modules
     bun build ./packages/cli/src/main.ts --target=bun --outfile=dhall-ts
     runHook postBuild
   '';
@@ -77,6 +82,7 @@ stdenv.mkDerivation {
     mkdir -p $out/bin $out/share/dhall-wasm
     install -m755 dhall-ts $out/bin/dhall-ts
     cp packages/engine/wasm/engine.wasm $out/share/dhall-wasm/engine.wasm
+    cp packages/engine/wasm/engine.js $out/share/dhall-wasm/engine.js
     wrapProgram $out/bin/dhall-ts \
       --set DHALL_WASM_ENGINE "$out/share/dhall-wasm/engine.wasm" \
       --prefix PATH : ${lib.makeBinPath [ bun ]}

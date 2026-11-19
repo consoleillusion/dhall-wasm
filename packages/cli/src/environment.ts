@@ -1,14 +1,22 @@
 import { readFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve } from "node:path";
-import type { DhallEnvironment } from "@dhall-wasm/core";
+import type { DhallEnvironment, ImportRequest } from "@dhall-wasm/core";
 
 /** The CLI's default import resolver: local files, plus opt-in HTTPS. */
 export function createNodeEnvironment(file: string, remoteImports: boolean): DhallEnvironment {
-  const baseDirectory = file === "-" ? process.cwd() : dirname(resolve(file));
+  const fallbackDirectory = file === "-" ? process.cwd() : dirname(resolve(file));
+
+  const variables = Object.fromEntries(
+    Object.entries(process.env).flatMap(([name, value]): Array<[string, string]> =>
+      value === undefined ? [] : [[name, value]],
+    ),
+  );
 
   return {
-    async resolveImport(request) {
+    variables,
+    async resolveImport(request: ImportRequest) {
       const specifier = request.specifier;
+      const baseDirectory = request.baseDirectory || fallbackDirectory;
 
       if (/^https?:\/\//.test(specifier)) {
         if (!remoteImports) {

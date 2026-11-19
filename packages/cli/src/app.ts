@@ -43,7 +43,7 @@ async function execute<T>(
   io: CliIo,
   kind: DhallErrorKind,
   operation: () => Promise<Result<T>>,
-  onSuccess: (value: T) => void,
+  onSuccess: (value: T) => void | Promise<void>,
 ): Promise<CliResult> {
   try {
     const result = await operation();
@@ -51,7 +51,7 @@ async function execute<T>(
       io.printError(formatDiagnostic(result.error));
       return { ok: false };
     }
-    onSuccess(result.value);
+    await onSuccess(result.value);
     return { ok: true };
   } catch (error) {
     io.printError(
@@ -87,6 +87,7 @@ export function createApp(io: CliIo = defaultIo) {
       return execute(io, "evaluation", async () =>
         evaluateToText(source, {
           format,
+          sourcePath: file,
           environment: io.createEnvironment(file, remoteImports),
           remoteImports,
         }), io.print);
@@ -107,6 +108,7 @@ export function createApp(io: CliIo = defaultIo) {
         "typecheck",
         () =>
           typeCheck(source, {
+            sourcePath: file,
             environment: io.createEnvironment(file, remoteImports),
             remoteImports,
           }),
@@ -148,11 +150,14 @@ export function createApp(io: CliIo = defaultIo) {
           generateTypesFromSource(source, {
             name: typeName,
             validator,
+            sourcePath: file,
             environment: io.createEnvironment(file, remoteImports),
             remoteImports,
           }),
-        (generated) =>
-          validator ? io.printRaw(generated.module) : io.printRaw(generated.declaration),
+        (generated) => {
+          const text = validator ? generated.module : generated.declaration;
+          return out ? io.writeFile(out, text) : io.printRaw(text);
+        },
       );
     },
   });

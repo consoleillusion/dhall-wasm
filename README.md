@@ -11,12 +11,16 @@ option (`--format` → `format`, `--remote-imports` → `remoteImports`,
 and errors are rendered by the library's `formatDiagnostic`. Tests exercise each
 scenario through both interfaces and assert identical results.
 
-The Dhall engine itself is compiled from Haskell to WebAssembly, but **consumers
-never compile it**. Published packages ship the prebuilt `engine.wasm`, so
-`npm`, `bun`, Node, and browser users need no Haskell toolchain at install time
-or runtime. `packages/engine/wasm/engine.wasm` in this repo is currently a
-placeholder; until the real engine build lands, evaluation reports a clear
-`engine` error.
+The Dhall engine is the official `dhall-haskell` implementation compiled to
+WebAssembly by a small Haskell bridge. **Consumers never compile it.** Published
+packages ship the prebuilt `packages/engine/wasm/engine.wasm` and its generated
+JSFFI glue (`engine.js`), so `npm`, `bun`, Node, and browser users need no
+Haskell toolchain at install time or runtime.
+
+The library loads that artifact lazily on first evaluation. Set
+`DHALL_WASM_ENGINE` to override its location, or call `loadWasmEngine({
+wasmUrl })` / `initializeEngine({ wasmUrl })` explicitly. The same engine powers
+the CLI.
 
 ## Using the library
 
@@ -34,6 +38,7 @@ bun install
 bun run typecheck
 bun test
 bun run cli -- --help
+bun run build:engine   # optional; rebuilds the checked-in WASM artifacts
 ```
 
 ## Nix
