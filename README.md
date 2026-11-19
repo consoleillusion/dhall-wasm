@@ -40,13 +40,10 @@ wasm32-wasi-cabal --version
 ```
 
 The toolchain comes from `ghc-wasm-nix`, which wraps the prebuilt bindists from
-`ghc-wasm-meta` in nixpkgs' Haskell infrastructure. You can also install just
-the compiler without entering a shell:
-
-```bash
-nix profile install .#ghc
-nix build .#ghc
-```
+`ghc-wasm-meta` in nixpkgs' Haskell infrastructure. It is **not** a package
+output: `nix build .` and `nix run .` never pull it in. Regular users consume
+the prebuilt engine artifact; only contributors rebuilding the engine need this
+shell.
 
 `post-link.mjs` is included in the GHC derivation's `lib/` directory, and the
 shell additionally provides `wasm-opt`, `wasm-tools`, `wizer`, and `wasmtime`.

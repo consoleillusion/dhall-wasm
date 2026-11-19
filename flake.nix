@@ -35,15 +35,12 @@
       wasmSystems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
     in
     {
-      packages = forAllSystems ({ basePkgs, wasmPkgs, system, ... }:
-        {
-          default = basePkgs.callPackage ./nix/cli.nix { inherit self; };
-        }
-        // nixpkgs.lib.optionalAttrs (builtins.elem system wasmSystems) {
-          # Opt-in: `nix build .#ghc` / `nix profile install .#ghc`.
-          ghc = wasmPkgs.haskellWasmPackages.ghc;
-          cabal = wasmPkgs.haskellWasmCabal;
-        });
+      # Regular users only ever get the CLI (and its prebuilt WASM artifact).
+      # The Haskell toolchain is deliberately not a package output; it exists
+      # solely as the opt-in `.#engine` development shell below.
+      packages = forAllSystems ({ basePkgs, ... }: {
+        default = basePkgs.callPackage ./nix/cli.nix { inherit self; };
+      });
 
       apps = forAllSystems ({ system, ... }: {
         default = {

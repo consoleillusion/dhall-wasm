@@ -21,8 +21,10 @@ wasm32-wasi-ghc --version
 This shell comes from the `ghc-wasm-nix` flake input, which integrates
 `ghc-wasm-meta`'s prebuilt bindists with nixpkgs' Haskell package set. It also
 provides `wasm32-wasi-cabal`, `wasm-opt`, `wasm-tools`, `wizer`, and `wasmtime`.
-The resulting compiler can be installed directly with `nix profile install .#ghc`
-(or built with `nix build .#ghc`) without changing the default CLI app.
+
+The toolchain is deliberately only a development shell, not a package output.
+`nix build .` and `nix run .` produce the CLI with its prebuilt engine artifact
+and never depend on GHC; regular users do not need a Haskell compiler.
 
 On `x86_64-darwin`, the engine shell is intentionally omitted because the GHC
 WASM bindists do not support that platform.
