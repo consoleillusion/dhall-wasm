@@ -54,78 +54,6 @@ function renderDhall(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function cborHeader(major: number, value: number): number[] {
-  if (value < 24) return [(major << 5) | value];
-  if (value <= 0xff) return [(major << 5) | 24, value];
-  if (value <= 0xffff) return [(major << 5) | 25, (value >>> 8) & 0xff, value & 0xff];
-  if (value <= 0xffffffff) {
-    return [
-      (major << 5) | 26,
-      (value >>> 24) & 0xff,
-      (value >>> 16) & 0xff,
-      (value >>> 8) & 0xff,
-      value & 0xff,
-    ];
-  }
-
-  let remaining = BigInt(value);
-  const bytes = [(major << 5) | 27];
-  for (let index = 7; index >= 0; index--) {
-    bytes.push(Number((remaining >> BigInt(index * 8)) & 0xffn));
-  }
-  return bytes;
-}
-
-function cborFloat64(value: number): number[] {
-  const buffer = new ArrayBuffer(8);
-  new DataView(buffer).setFloat64(0, value, false);
-  return [0xfb, ...new Uint8Array(buffer)];
-}
-
-function encodeCbor(value: unknown): number[] {
-  if (value === null || value === undefined) return [0xf6];
-  if (typeof value === "boolean") return [value ? 0xf5 : 0xf4];
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) return cborFloat64(value);
-    if (!Number.isInteger(value)) return cborFloat64(value);
-    return value >= 0 ? cborHeader(0, value) : cborHeader(1, -1 - value);
-  }
-  if (typeof value === "bigint") {
-    return value >= 0n
-      ? cborHeader(0, Number(value))
-      : cborHeader(1, Number(-1n - value));
-  }
-  if (typeof value === "string") {
-    const bytes = new TextEncoder().encode(value);
-    return [...cborHeader(3, bytes.length), ...bytes];
-  }
-  if (value instanceof Uint8Array) {
-    return [...cborHeader(2, value.length), ...value];
-  }
-  if (Array.isArray(value)) {
-    return [
-      ...cborHeader(4, value.length),
-      ...value.flatMap((item) => encodeCbor(item)),
-    ];
-  }
-  if (typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
-      a.localeCompare(b),
-    );
-    return [
-      ...cborHeader(5, entries.length),
-      ...entries.flatMap(([key, item]) => [...encodeCbor(key), ...encodeCbor(item)]),
-    ];
-  }
-  return encodeCbor(String(value));
-}
-
-function toCborHex(value: unknown): string {
-  return encodeCbor(value)
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
 /** Render an evaluated value in one of the supported output formats. */
 export function formatValue(value: unknown, format: OutputFormat): string {
   switch (format) {
@@ -134,8 +62,9 @@ export function formatValue(value: unknown, format: OutputFormat): string {
     // The WASM engine returns normalized Dhall text for this format.
     case "dhall":
       return typeof value === "string" ? value : renderDhall(value);
+    // The WASM engine returns CBOR as a hex string using its canonical encoder.
     case "cbor":
-      return toCborHex(value);
+      return typeof value === "string" ? value : JSON.stringify(value);
   }
 }
 

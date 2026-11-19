@@ -48,6 +48,14 @@ test("the engine returns normalized Dhall text for the dhall format", async () =
   if (result.ok) expect(result.value).toBe('{ count = 2, name = "Ada" }');
 });
 
+test("the engine returns canonical CBOR hex for the cbor format", async () => {
+  const dhall = await engine();
+  const result = await dhall.evaluate('{ name = "Ada", count = 2 }', { format: "cbor" });
+
+  expect(result.ok).toBe(true);
+  if (result.ok) expect(result.value).toBe("a265636f756e7402646e616d6563416461");
+});
+
 test("relative imports and env imports are resolved by the host", async () => {
   const directory = await mkdtemp(join(tmpdir(), "dhall-wasm-engine-"));
   temporaryDirectories.push(directory);

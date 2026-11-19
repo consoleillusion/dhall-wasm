@@ -20,8 +20,10 @@ executable dhall-engine
       aeson             >=2.0 && <2.4
     , base              >=4.18 && <4.23
     , bytestring        >=0.11
+    , cborg             >=0.2 && <0.3
     , containers        >=0.6
     , dhall             >=1.42 && <1.43
     , filepath          >=1.4
     , ghc-experimental
+    , scientific        >=0.3 && <0.4
     , text              >=2.0

@@ -16,11 +16,24 @@ fi
 # DHALL_WASM_CABAL_HOME to reuse an existing cache between shells.
 export HOME="${DHALL_WASM_CABAL_HOME:-$HOME/.cache/dhall-wasm/cabal-home}"
 mkdir -p "$HOME"
-wasm32-wasi-cabal update
+
+# Pass explicit paths: cabal still looks for an unprefixed `ghc-pkg` while
+# re-resolving dependencies, which the WASM bindist does not provide.  A
+# temporary PATH shim keeps that workaround inside this maintainer script;
+# consumers never see it and the Nix shell needs no changes.
+ghc="$(command -v wasm32-wasi-ghc)"
+ghc_pkg="$(command -v wasm32-wasi-ghc-pkg)"
+shim_dir="$(mktemp -d)"
+trap 'rm -rf "$shim_dir"' EXIT
+ln -s "$ghc_pkg" "$shim_dir/ghc-pkg"
+export PATH="$shim_dir:$PATH"
+
+wasm32-wasi-cabal update --with-compiler="$ghc" --with-hc-pkg="$ghc_pkg"
 
 cd "$engine_dir"
 wasm32-wasi-cabal build exe:dhall-engine \
-  --with-hc-pkg="$(command -v wasm32-wasi-ghc-pkg)"
+  --with-compiler="$ghc" \
+  --with-hc-pkg="$ghc_pkg"
 wasm="$(find dist-newstyle -type f -name dhall-engine.wasm -print -quit)"
 if [[ -z "$wasm" ]]; then
   echo "error: could not locate the built dhall-engine.wasm" >&2

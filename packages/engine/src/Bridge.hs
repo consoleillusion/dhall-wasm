@@ -11,6 +11,17 @@
 -- an import, so hosts (Node, browsers, tests) control import resolution.
 module Main (main, evaluate, typeCheck, describeType) where
 
+import Codec.CBOR.Encoding
+  ( Encoding
+  , encodeBool
+  , encodeDouble
+  , encodeInteger
+  , encodeListLen
+  , encodeMapLen
+  , encodeNull
+  , encodeString
+  )
+import qualified Codec.CBOR.Write as CBOR
 import Control.Exception (Exception, SomeException, throwIO, try, fromException)
 import Control.Monad (unless, when)
 import Data.Aeson
@@ -25,17 +36,22 @@ import Data.Aeson
   , (.=)
   , (.:?)
   )
+import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Key as Key
 import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import Data.Foldable (toList)
+import Data.List (sortOn)
 import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe)
+import Data.Scientific (floatingOrInteger)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Data.Void (Void, absurd)
+import Data.Word (Word8)
+import Numeric (showHex)
 import Dhall.Core
   ( Chunks (..)
   , DhallDouble (..)
@@ -136,7 +152,9 @@ evaluate resolver raw = runBridge raw $ \Request {..} -> do
     "dhall" -> pure (toJSON (Core.pretty normalized))
     _ -> case dhallToValue normalized of
       Left e -> throwIO (bridgeError "evaluation" e)
-      Right value -> pure value
+      Right value
+        | requestFormat == "cbor" -> pure (toJSON (toCborHex value))
+        | otherwise -> pure value
 
 typeCheck :: JSVal -> JSString -> IO JSString
 typeCheck resolver raw = runBridge raw $ \Request {..} -> do
@@ -304,6 +322,32 @@ dhallToValue expr = case Core.normalize expr of
   Field (Union _) (FieldSelection _ name _) -> Right (toJSON name)
   BytesLit bytes -> Right (toJSON (map fromIntegral (BS.unpack bytes) :: [Integer]))
   other -> Left ("Cannot convert Dhall expression to JSON: " <> Core.pretty other)
+
+-- | Encode a normalized value as CBOR using the same canonical rules the TS
+-- renderer used: maps are sorted by key and integral numbers use CBOR integer
+-- majors while fractional numbers use float64.
+cborEncoding :: Value -> Encoding
+cborEncoding value = case value of
+  Null -> encodeNull
+  Aeson.Bool b -> encodeBool b
+  Number n -> case floatingOrInteger n of
+    Right integer -> encodeInteger integer
+    Left double -> encodeDouble double
+  String text -> encodeString text
+  Array values ->
+    encodeListLen (fromIntegral (length values)) <> mconcat (map cborEncoding (toList values))
+  Object fields ->
+    let sorted = sortOn (Key.toText . fst) (KeyMap.toList fields)
+    in encodeMapLen (fromIntegral (length sorted))
+       <> mconcat [encodeString (Key.toText key) <> cborEncoding item | (key, item) <- sorted]
+
+toCborHex :: Value -> Text
+toCborHex = T.pack . concatMap hexByte . BS.unpack . CBOR.toStrictByteString . cborEncoding
+  where
+    hexByte :: Word8 -> String
+    hexByte byte =
+      let digits = showHex byte ""
+      in if length digits == 1 then '0' : digits else digits
 
 unknownType :: Expr Void Void -> BridgeError
 unknownType expr = bridgeError
