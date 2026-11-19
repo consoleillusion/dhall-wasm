@@ -1,0 +1,30 @@
+-- The engine is built only by contributors; consumers use the checked-in
+-- artifacts in wasm/.  Dhall is fetched from a pinned upstream commit, so no
+-- third-party Haskell source is vendored in this repository.
+packages: .
+
+with-compiler: wasm32-wasi-ghc
+with-hc-pkg: wasm32-wasi-ghc-pkg
+
+source-repository-package
+  type: git
+  location: https://github.com/dhall-lang/dhall-haskell.git
+  tag: 93b443d2bc42061780ce109dd1ea593ee9c1b65b
+  subdir: dhall
+
+-- The WASM compiler cannot run Template Haskell and imports are resolved by
+-- the JavaScript host through JSFFI instead of Haskell's HTTP stack.
+package dhall
+  flags: +cross -with-http -use-http-client-tls
+
+-- cborg 0.2.10.0's 32-bit branch imports GHC.IntWord64, which GHC 9.14 no
+-- longer ships.  The wasm32-wasi target does support 64-bit primops, so select
+-- cborg's 64-bit branch with a Cabal option instead of patching its source.
+package cborg
+  ghc-options: -DWORD_SIZE_IN_BITS=64
+
+-- terminfo needs a native curses library, which the WASI SDK does not provide.
+package haskeline
+  flags: -terminfo
+
+allow-newer: base, ghc-prim, containers, time, deepseq, primitive

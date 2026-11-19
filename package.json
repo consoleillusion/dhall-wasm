@@ -9,7 +9,8 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "bun test",
-    "cli": "bun run packages/cli/src/main.ts"
+    "cli": "bun run packages/cli/src/main.ts",
+    "build:engine": "nix develop .#engine --command bash packages/engine/scripts/build.sh"
   },
   "devDependencies": {
     "@types/bun": "latest",

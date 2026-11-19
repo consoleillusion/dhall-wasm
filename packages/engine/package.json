@@ -3,5 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Haskell-to-WASM Dhall engine build (maintainers only)"
+  "description": "Haskell-to-WASM Dhall engine build (maintainers only)",
+  "exports": {
+    "./engine.js": {
+      "types": "./wasm/engine.d.ts",
+      "default": "./wasm/engine.js"
+    },
+    "./engine.wasm": "./wasm/engine.wasm"
+  },
+  "scripts": {
+    "build": "bash ./scripts/build.sh"
+  }
 }
