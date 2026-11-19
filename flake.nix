@@ -15,6 +15,7 @@
       systems = [
         "x86_64-linux"
         "aarch64-linux"
+        "x86_64-darwin"
         "aarch64-darwin"
       ];
       forAllSystems =
@@ -35,12 +36,18 @@
       wasmSystems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
     in
     {
-      # Regular users only ever get the CLI (and its prebuilt WASM artifact).
-      # The Haskell toolchain is deliberately not a package output; it exists
-      # solely as the opt-in `.#engine` development shell below.
-      packages = forAllSystems ({ basePkgs, ... }: {
-        default = basePkgs.callPackage ./nix/cli.nix { inherit self; };
-      });
+      # The default package is the CLI with its prebuilt engine artifact, so
+      # npm/bun/node/ts consumers and `nix run .` never need GHC. Maintainer-
+      # only compiler outputs are available as explicit opt-ins and are never
+      # dependencies of `default`.
+      packages = forAllSystems ({ basePkgs, wasmPkgs, system, ... }:
+        {
+          default = basePkgs.callPackage ./nix/cli.nix { inherit self; };
+        }
+        // nixpkgs.lib.optionalAttrs (builtins.elem system wasmSystems) {
+          ghc = wasmPkgs.haskellWasmPackages.ghc;
+          cabal = wasmPkgs.haskellWasmCabal;
+        });
 
       apps = forAllSystems ({ system, ... }: {
         default = {
