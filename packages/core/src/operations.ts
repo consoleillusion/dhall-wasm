@@ -131,8 +131,9 @@ export function formatValue(value: unknown, format: OutputFormat): string {
   switch (format) {
     case "json":
       return JSON.stringify(value, null, 2);
+    // The WASM engine returns normalized Dhall text for this format.
     case "dhall":
-      return renderDhall(value);
+      return typeof value === "string" ? value : renderDhall(value);
     case "cbor":
       return toCborHex(value);
   }

@@ -24,6 +24,9 @@
     "packages/core": {
       "name": "@dhall-wasm/core",
       "version": "0.1.0",
+      "dependencies": {
+        "@dhall-wasm/engine": "workspace:*",
+      },
     },
     "packages/engine": {
       "name": "@dhall-wasm/engine",

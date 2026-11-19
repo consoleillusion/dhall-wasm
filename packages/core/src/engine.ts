@@ -27,76 +27,124 @@ export interface DhallEnvironment {
   readonly variables?: Readonly<Record<string, string>>;
 }
 
-export interface EvaluateOptions {
+export interface SourceOptions {
+  /** Source label used in diagnostics and as the base for relative imports. */
+  readonly sourcePath?: string;
+}
+
+export interface EvaluateOptions extends SourceOptions {
   readonly format: OutputFormat;
   readonly environment?: DhallEnvironment;
   readonly remoteImports?: boolean;
 }
 
-export interface TypeCheckOptions {
+export interface TypeCheckOptions extends SourceOptions {
   readonly environment?: DhallEnvironment;
   readonly remoteImports?: boolean;
 }
 
-export interface DescribeTypeOptions {
+export interface DescribeTypeOptions extends SourceOptions {
   readonly environment?: DhallEnvironment;
   readonly remoteImports?: boolean;
 }
 
 export interface DhallEngine {
-  evaluate(source: string, options: EvaluateOptions): Promise<Result<unknown>>;
-  typeCheck(source: string, options: TypeCheckOptions): Promise<Result<string>>;
+  evaluate(source: string, options?: EvaluateOptions): Promise<Result<unknown>>;
+  typeCheck(source: string, options?: TypeCheckOptions): Promise<Result<string>>;
   describeType(
     source: string,
-    options: DescribeTypeOptions,
+    options?: DescribeTypeOptions,
   ): Promise<Result<DhallTypeSchema>>;
 }
 
-const unavailable: DhallEngine = {
-  async evaluate() {
-    return err("engine", new EngineNotBuiltError().message);
-  },
-  async typeCheck() {
-    return err("engine", new EngineNotBuiltError().message);
-  },
-  async describeType() {
-    return err("engine", new EngineNotBuiltError().message);
-  },
-};
+function errorEngine(message: string): DhallEngine {
+  return {
+    async evaluate() {
+      return err("engine", message);
+    },
+    async typeCheck() {
+      return err("engine", message);
+    },
+    async describeType() {
+      return err("engine", message);
+    },
+  };
+}
 
-let currentEngine: DhallEngine = unavailable;
+const unavailable: DhallEngine = errorEngine(new EngineNotBuiltError().message);
+
+let explicitEngine: DhallEngine | undefined;
+let disabled = false;
+let initialization: Promise<DhallEngine> | undefined;
 
 /** Replace the active engine (used by the WASM loader and by tests). */
 export function setEngine(engine: DhallEngine): void {
-  currentEngine = engine;
+  explicitEngine = engine;
+  disabled = false;
+  initialization = Promise.resolve(engine);
 }
 
 /** Restore the placeholder engine that reports the artifact has not been built. */
 export function clearEngine(): void {
-  currentEngine = unavailable;
+  explicitEngine = unavailable;
+  disabled = true;
+  initialization = undefined;
 }
 
 export function getEngine(): DhallEngine {
-  return currentEngine;
+  return explicitEngine ?? unavailable;
+}
+
+/** Explicitly initialize the WASM engine. Library calls also initialize it lazily. */
+export async function initializeEngine(
+  options?: import("./wasm.ts").WasmEngineOptions,
+): Promise<DhallEngine> {
+  const { loadWasmEngine } = await import("./wasm.ts");
+  const engine = await loadWasmEngine(options);
+  setEngine(engine);
+  return engine;
+}
+
+async function ensureEngine(): Promise<DhallEngine> {
+  if (explicitEngine) return explicitEngine;
+  if (disabled) return unavailable;
+
+  initialization ??= import("./wasm.ts")
+    .then(({ loadWasmEngine }) => loadWasmEngine())
+    .then((engine) => {
+      explicitEngine = engine;
+      return engine;
+    })
+    .catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      const failed = errorEngine(`Unable to load the Dhall WASM engine: ${message}`);
+      explicitEngine = failed;
+      return failed;
+    });
+
+  return initialization;
 }
 
 export async function evaluate(
   source: string,
   options: EvaluateOptions = { format: "json" },
 ): Promise<Result<unknown>> {
-  return currentEngine.evaluate(source, options);
+  const engine = await ensureEngine();
+  return engine.evaluate(source, options);
 }
 
 export async function typeCheck(
   source: string,
   options: TypeCheckOptions = {},
 ): Promise<Result<string>> {
-  return currentEngine.typeCheck(source, options);
+  const engine = await ensureEngine();
+  return engine.typeCheck(source, options);
 }
 
 export async function describeType(
   source: string,
   options: DescribeTypeOptions = {},
 ): Promise<Result<DhallTypeSchema>> {
-  return currentEngine.describeType(source, options);
+  const engine = await ensureEngine();
+  return engine.describeType(source, options);
 }
