@@ -38,6 +38,11 @@ export function err<T = never>(
   return { ok: false, error: { kind, message, ...details } };
 }
 
+/** Lift an existing diagnostic into a `Result` of any value type. */
+export function failure<T>(error: DhallDiagnostic): Result<T> {
+  return { ok: false, error };
+}
+
 export class DhallError extends Error {
   readonly diagnostic: DhallDiagnostic;
 

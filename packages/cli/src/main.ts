@@ -8,4 +8,6 @@ if (argv.length === 0) {
   argv.push("--help");
 }
 
-await run(app, argv);
+const result = await run(app, argv);
+const outcome = await result.value;
+process.exitCode = outcome.ok ? 0 : 1;

@@ -2,8 +2,14 @@
 
 Dhall for TypeScript projects. One implementation, two interfaces:
 
-- `@dhall-wasm/core` — the TypeScript library (`evaluate`, `typeCheck`, `describeType`, `generateTypes`).
-- `@dhall-wasm/cli` — a [`cmd-ts`](https://github.com/Schniz/cmd-ts) CLI that calls the library.
+- `@dhall-wasm/core` — the TypeScript library (`evaluate`, `typeCheck`, `describeType`, `generateTypes`, plus the higher-level `evaluateToText` and `generateTypesFromSource`).
+- `@dhall-wasm/cli` — a [`cmd-ts`](https://github.com/Schniz/cmd-ts) CLI that is a thin adapter over those same functions.
+
+The library is the single source of truth. Every CLI flag maps to a library
+option (`--format` → `format`, `--remote-imports` → `remoteImports`,
+`--validator` → `validator`), output is produced by the library's `formatValue`,
+and errors are rendered by the library's `formatDiagnostic`. Tests exercise each
+scenario through both interfaces and assert identical results.
 
 The Dhall engine itself is compiled from Haskell to WebAssembly, but **consumers
 never compile it**. Published packages ship the prebuilt `engine.wasm`, so
